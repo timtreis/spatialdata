@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any, Literal
 import pandas as pd
 import zarr
 from anndata import AnnData
+from pandas import DataFrame
 from dask.dataframe import DataFrame as DaskDataFrame
 from dask.dataframe import read_parquet
 from dask.delayed import Delayed
@@ -21,7 +22,7 @@ from ome_zarr.types import JSONDict
 from shapely import MultiPolygon, Polygon
 from xarray import DataArray
 
-from spatialdata._core._elements import Images, Labels, Points, Shapes, Tables
+from spatialdata._core._elements import Images, Labels, Points, Shapes, Tables, Metadata
 from spatialdata._logging import logger
 from spatialdata._types import ArrayLike, Raster_T
 from spatialdata._utils import _deprecation_alias, _error_message_add_element
@@ -33,6 +34,7 @@ from spatialdata.models import (
     PointsModel,
     ShapesModel,
     TableModel,
+    MetadataModel,
     check_target_region_column_symmetry,
     get_model,
     get_table_keys,
@@ -51,6 +53,7 @@ Image3D_s = Image3DModel()
 Shape_s = ShapesModel()
 Point_s = PointsModel()
 Table_s = TableModel()
+Metadata_s = MetadataModel()
 
 
 class SpatialData:
@@ -71,6 +74,7 @@ class SpatialData:
         - :class:`~spatialdata.PointsModel`,
         - :class:`~spatialdata.ShapesModel`,
         - :class:`~spatialdata.TableModel`
+        - :class:`~spatialdata.MetadataModel`
 
     Parameters
     ----------
@@ -91,6 +95,8 @@ class SpatialData:
     table
         AnnData table containing annotations for regions (labels and shapes). The following parsers is
         available: :class:`~spatialdata.TableModel`.
+    metadata
+        DataFrame containing metadata. The following parsers is available: :class:`~spatialdata.MetadataModel`.
 
     Notes
     -----
@@ -115,6 +121,7 @@ class SpatialData:
         points: dict[str, DaskDataFrame] | None = None,
         shapes: dict[str, GeoDataFrame] | None = None,
         tables: dict[str, AnnData] | Tables | None = None,
+        metadata: dict[str, DataFrame] | Metadata | None = None,
     ) -> None:
         self._path: Path | None = None
 
@@ -124,6 +131,7 @@ class SpatialData:
         self._points: Points = Points(shared_keys=self._shared_keys)
         self._shapes: Shapes = Shapes(shared_keys=self._shared_keys)
         self._tables: Tables = Tables(shared_keys=self._shared_keys)
+        self._metadata: Metadata = Metadata(shared_keys=self._shared_keys)
 
         # Workaround to allow for backward compatibility
         if isinstance(tables, AnnData):
@@ -157,6 +165,9 @@ class SpatialData:
             for k, v in tables.items():
                 self.validate_table_in_spatialdata(v)
                 self.tables[k] = v
+
+        if metadata is not None:
+            self.metadata = metadata
 
         self._query = QueryManager(self)
 
@@ -1578,6 +1589,24 @@ class SpatialData:
             self._tables[k] = v
 
     @property
+    def metadata(self) -> Metadata:
+        """
+        Return tables dictionary.
+
+        Returns
+        -------
+        DataFrame
+            meta
+        """
+        return self._metadata
+
+    @metadata.setter
+    def metadata(self, metadata: DataFrame) -> None:
+        """Set metadata."""
+        # self._metadata = Metadata(shared_keys=self._shared_keys)
+        self._metadata = metadata
+
+    @property
     def table(self) -> None | AnnData:
         """
         Return table with name table from tables if it exists.
@@ -1920,6 +1949,13 @@ class SpatialData:
                 descr += "\nwith the following elements in the Zarr store but not in the SpatialData object:"
                 for element_path in elements_only_in_zarr:
                     descr += f"\n    ▸ {_element_path_to_element_name_with_type(element_path)}"
+                    
+        descr += "\n"
+        if self.metadata is not None:
+            descr += f"\nwith metadata:"
+            for k, v in self.metadata.items():
+                descr += f"\n    ▸ {k}: {v.values}"
+        
         return descr
 
     def _gen_spatial_element_values(self) -> Generator[SpatialElement, None, None]:

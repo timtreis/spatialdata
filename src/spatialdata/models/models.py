@@ -1035,6 +1035,35 @@ class TableModel:
         return convert_region_column_to_categorical(adata)
 
 
+class MetadataModel:
+    REGION_KEY = "region"
+    REGION_KEY_KEY = "region_key"
+    INSTANCE_KEY = "instance_key"
+    ATTRS_KEY = ATTRS_KEY
+
+    @classmethod
+    def parse(cls, metadata: pd.DataFrame) -> pd.DataFrame:
+        """
+        Parse the :class:`anndata.AnnData` to be compatible with the model.
+
+        Parameters
+        ----------
+        adata
+            The AnnData object.
+        region
+            Region(s) to be used.
+        region_key
+            Key in `adata.obs` that specifies the region.
+        instance_key
+            Key in `adata.obs` that specifies the instance.
+
+        Returns
+        -------
+        The parsed data.
+        """
+        # either all live in adata.uns or all be passed in as argument
+
+
 Schema_t = Union[
     type[Image2DModel],
     type[Image3DModel],
@@ -1043,6 +1072,7 @@ Schema_t = Union[
     type[PointsModel],
     type[ShapesModel],
     type[TableModel],
+    type[MetadataModel],
 ]
 
 

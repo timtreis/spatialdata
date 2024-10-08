@@ -7,6 +7,7 @@ from collections.abc import Iterable
 from typing import Any
 from warnings import warn
 
+from pandas import DataFrame
 from anndata import AnnData
 from dask.dataframe import DataFrame as DaskDataFrame
 from geopandas import GeoDataFrame
@@ -20,9 +21,11 @@ from spatialdata.models import (
     PointsModel,
     ShapesModel,
     TableModel,
+    MetadataModel,
     get_axes_names,
     get_model,
 )
+
 
 
 class Elements(UserDict[str, Any]):
@@ -116,6 +119,16 @@ class Tables(Elements):
         self._check_key(key, self.keys(), self._shared_keys)
         schema = get_model(value)
         if schema != TableModel:
+            raise TypeError(f"Unknown element type with schema: {schema!r}.")
+        TableModel().validate(value)
+        super().__setitem__(key, value)
+
+
+class Metadata(Elements):
+    def __setitem__(self, key: str, value: DataFrame) -> None:
+        self._check_key(key, self.keys(), self._shared_keys)
+        schema = get_model(value)
+        if schema != MetadataModel:
             raise TypeError(f"Unknown element type with schema: {schema!r}.")
         TableModel().validate(value)
         super().__setitem__(key, value)

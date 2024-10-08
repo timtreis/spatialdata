@@ -23,6 +23,7 @@ from spatialdata.models.models import (
     PointsModel,
     ShapesModel,
     TableModel,
+    MetadataModel,
     check_target_region_column_symmetry,
     get_model,
     get_table_keys,
