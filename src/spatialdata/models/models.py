@@ -1061,7 +1061,9 @@ class MetadataModel:
         -------
         The parsed data.
         """
-        # either all live in adata.uns or all be passed in as argument
+        assert isinstance(metadata, pd.DataFrame)
+        return metadata
+        
 
 
 Schema_t = Union[
