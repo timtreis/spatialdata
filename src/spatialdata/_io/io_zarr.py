@@ -9,6 +9,7 @@ from anndata import AnnData
 
 from spatialdata._core.spatialdata import SpatialData
 from spatialdata._io._utils import ome_zarr_logger
+from spatialdata._io.io_metadata import _read_global_metadata
 from spatialdata._io.io_points import _read_points
 from spatialdata._io.io_raster import _read_multiscale
 from spatialdata._io.io_shapes import _read_shapes
@@ -61,9 +62,14 @@ def read_zarr(store: Union[str, Path, zarr.Group], selection: Optional[tuple[str
     points = {}
     tables: dict[str, AnnData] = {}
     shapes = {}
+    metadata = None
 
     # TODO: remove table once deprecated.
-    selector = {"images", "labels", "points", "shapes", "tables", "table"} if not selection else set(selection or [])
+    selector = (
+        {"images", "labels", "points", "shapes", "tables", "table", "metadata"}
+        if not selection
+        else set(selection or [])
+    )
     logger.debug(f"Reading selection {selector}")
 
     # read multiscale images
@@ -139,12 +145,12 @@ def read_zarr(store: Union[str, Path, zarr.Group], selection: Optional[tuple[str
 
         logger.debug(f"Found {count} elements in {group}")
 
-    sdata = SpatialData(
-        images=images,
-        labels=labels,
-        points=points,
-        shapes=shapes,
-        tables=tables,
-    )
+    if "metadata" in selector and "metadata" in f:
+        group = f["metadata"]
+        f_elem_store = os.path.join(f_store_path)
+        metadata = _read_global_metadata(f_elem_store)
+        logger.debug(f"Found {count} elements in {group}")
+
+    sdata = SpatialData(images=images, labels=labels, points=points, shapes=shapes, tables=tables, metadata=metadata)
     sdata.path = Path(store)
     return sdata

@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING, Any, Literal
 import pandas as pd
 import zarr
 from anndata import AnnData
-from pandas import DataFrame
 from dask.dataframe import DataFrame as DaskDataFrame
 from dask.dataframe import read_parquet
 from dask.delayed import Delayed
@@ -19,10 +18,11 @@ from datatree import DataTree
 from geopandas import GeoDataFrame
 from ome_zarr.io import parse_url
 from ome_zarr.types import JSONDict
+from pandas import DataFrame
 from shapely import MultiPolygon, Polygon
 from xarray import DataArray
 
-from spatialdata._core._elements import Images, Labels, Points, Shapes, Tables, Metadata
+from spatialdata._core._elements import Images, Labels, Metadata, Points, Shapes, Tables
 from spatialdata._logging import logger
 from spatialdata._types import ArrayLike, Raster_T
 from spatialdata._utils import _deprecation_alias, _error_message_add_element
@@ -31,10 +31,10 @@ from spatialdata.models import (
     Image3DModel,
     Labels2DModel,
     Labels3DModel,
+    MetadataModel,
     PointsModel,
     ShapesModel,
     TableModel,
-    MetadataModel,
     check_target_region_column_symmetry,
     get_model,
     get_table_keys,
@@ -592,7 +592,7 @@ class SpatialData:
             raise ValueError("zarr_path should be a Path object")
         store = parse_url(zarr_path, mode="r+").store
         root = zarr.group(store=store)
-        if element_type not in ["images", "labels", "points", "polygons", "shapes", "tables"]:
+        if element_type not in ["images", "labels", "points", "polygons", "shapes", "tables", "metadata"]:
             raise ValueError(f"Unknown element type {element_type}")
         element_type_group = root.require_group(element_type)
         element_name_group = element_type_group.require_group(element_name)
@@ -1184,6 +1184,9 @@ class SpatialData:
         if consolidate_metadata:
             self.write_consolidated_metadata()
 
+        if self.metadata is not None:
+            self.write_global_metadata(zarr_container_path=file_path)
+
     def _write_element(
         self,
         element: SpatialElement | AnnData,
@@ -1287,6 +1290,20 @@ class SpatialData:
             overwrite=overwrite,
             format=format,
         )
+
+    def write_global_metadata(
+        self,
+        zarr_container_path: Path,
+    ) -> None:
+
+        store = parse_url(zarr_container_path, mode="r+").store
+        root = zarr.group(store=store)
+
+        element_type_group = root.require_group("metadata")
+
+        from spatialdata._io import write_global_metadata as write_g
+
+        write_g(metadata=self.metadata, name="metadata", group=element_type_group)
 
     def delete_element_from_disk(self, element_name: str | list[str]) -> None:
         """
@@ -1949,13 +1966,13 @@ class SpatialData:
                 descr += "\nwith the following elements in the Zarr store but not in the SpatialData object:"
                 for element_path in elements_only_in_zarr:
                     descr += f"\n    ▸ {_element_path_to_element_name_with_type(element_path)}"
-                    
+
         descr += "\n"
         if self.metadata is not None:
-            descr += f"\nwith metadata:"
+            descr += "\nwith metadata:"
             for k, v in self.metadata.items():
                 descr += f"\n    ▸ {k}: {v.values}"
-        
+
         return descr
 
     def _gen_spatial_element_values(self) -> Generator[SpatialElement, None, None]:
