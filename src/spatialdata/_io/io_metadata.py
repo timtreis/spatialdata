@@ -54,4 +54,3 @@ def write_global_metadata(
     metadata.to_csv(
         f"{str(path)}.csv", index=False, **kwargs
     )  # because Pathlib crops the extension and I'm too lazy to fix it
-
